@@ -13,6 +13,16 @@ import ConsumptionTable from '../components/table/ConsumptionTable.vue';
 import ConsumptionFilters from '../components/filters/ConsumptionFilters.vue';
 import type { Consumption } from '../types/consumption';
 
+interface ConsumptionFilters {
+  year?: number | null;
+  mes_codigo?: number | null;
+  nombre?: string;
+  instalacion?: number | null;
+  empresa?: number | null;
+  page?: number;
+  limit?: number;
+}
+
 const $q = useQuasar();
 const router = useRouter();
 const { isMobile } = useScreenSize();
@@ -20,7 +30,7 @@ const authStore = useAuthStore();
 const view = ref<'grid' | 'list'>(isMobile.value ? 'grid' : 'list');
 const consumptions = ref<Consumption[]>([]);
 const loading = ref(true);
-const currentFilters = ref({});
+const currentFilters = ref<ConsumptionFilters>({});
 const socket = ref<any>(null);
 const pagination = ref({
   sortBy: 'codigo',
@@ -108,7 +118,7 @@ const exportToExcel = async () => {
       limit: 999999, // Límite muy alto para obtener todos los registros
       ...currentFilters.value,
       empresa: authStore.codigoEmpresa
-    });
+    } as any);
 
     const exportColumns = [
       { key: 'codigo', label: 'Código', width: 10 },
@@ -161,7 +171,7 @@ const exportToPDF = async () => {
       limit: 999999, // Límite muy alto para obtener todos los registros
       ...currentFilters.value,
       empresa: authStore.codigoEmpresa
-    });
+    } as any);
 
     const exportColumns = [
       { key: 'codigo', label: 'Código' },
@@ -266,111 +276,486 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <q-page padding>
-    <div class="consumption-page q-pa-md">
-      <div class="page-header q-mb-md">
-        <div class="row items-center no-wrap">
-          <div class="col">
-            <ConsumptionFilters @filter="handleFilter" />
+  <q-page class="modern-page">
+    <div class="consumption-page">
+      <!-- Header con título y estadísticas -->
+      <div class="page-header">
+        <div class="header-content">
+          <div class="title-section">
+            <h1 class="page-title">
+              <q-icon name="water_drop" class="title-icon" />
+              Gestión de Consumos
+            </h1>
+            <p class="page-subtitle">Administra y visualiza los consumos de agua</p>
           </div>
-          <div class="col-auto actions-wrapper q-ml-sm">
-            <div class="row items-center no-wrap q-gutter-x-xs">
-              <ViewToggle v-model="view" />
+          
+          <!-- Tarjetas de estadísticas -->
+          <div class="stats-cards">
+            <div class="stat-card stat-card-primary">
+              <div class="stat-icon">
+                <q-icon name="assessment" />
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ pagination.rowsNumber }}</div>
+                <div class="stat-label">Total Registros</div>
+              </div>
+            </div>
+            <div class="stat-card stat-card-secondary">
+              <div class="stat-icon">
+                <q-icon name="today" />
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ new Date().getMonth() + 1 }}</div>
+                <div class="stat-label">Mes Actual</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección de filtros y acciones -->
+      <div class="filters-section">
+        <div class="filters-card">
+          <div class="filters-header">
+            <h3 class="filters-title">
+              <q-icon name="filter_list" class="filters-icon" />
+              Filtros y Acciones
+            </h3>
+          </div>
+          
+          <div class="filters-content">
+            <div class="filters-wrapper">
+              <ConsumptionFilters @filter="handleFilter" />
+            </div>
+            
+            <div class="actions-wrapper">
+              <div class="view-toggle-wrapper">
+                <ViewToggle v-model="view" />
+              </div>
+              
+              <div class="export-buttons">
+                <q-btn
+                  class="export-btn excel-btn"
+                  icon="file_download"
+                  label="Excel"
+                  @click="exportToExcel"
+                  no-caps
+                  unelevated
+                />
+                <q-btn
+                  class="export-btn pdf-btn"
+                  icon="picture_as_pdf"
+                  label="PDF"
+                  @click="exportToPDF"
+                  no-caps
+                  unelevated
+                />
+              </div>
+              
               <q-btn
-                color="green"
-                icon="file_download"
-                label="Excel"
-                @click="exportToExcel"
-                no-caps
-                unelevated
-                class="q-mr-sm"
-              />
-              <q-btn
-                color="red"
-                icon="picture_as_pdf"
-                label="PDF"
-                @click="exportToPDF"
-                no-caps
-                unelevated
-                class="q-mr-sm"
-              />
-              <q-btn
-                color="primary"
+                class="new-btn"
                 :icon-right="isMobile ? undefined : 'add'"
                 :icon="isMobile ? 'add' : undefined"
-                :label="isMobile ? undefined : 'Nuevo'"
-                dense
+                :label="isMobile ? undefined : 'Nuevo Consumo'"
                 @click="handleNewRecord"
+                no-caps
+                unelevated
               />
             </div>
           </div>
         </div>
       </div>
 
+      <!-- Sección de contenido -->
       <div class="content-section">
-        <template v-if="view === 'list'">
-          <ConsumptionTable
-            :rows="consumptions"
-            :loading="loading"
-            :pagination="pagination"
-            @request="onRequest"
-          />
-        </template>
-        <template v-else>
-          <div class="grid-container">
-            <ConsumptionGrid :items="consumptions" />
-            
-            <div class="row justify-center q-mt-md">
-              <q-pagination
-                v-model="pagination.page"
-                :max="Math.ceil(pagination.rowsNumber / pagination.rowsPerPage)"
-                :max-pages="6"
-                boundary-links
-                direction-links
-                color="primary"
-                @update:model-value="page => onRequest({ pagination: { ...pagination, page } })"
+        <div class="content-card">
+          <template v-if="view === 'list'">
+            <div class="table-wrapper">
+              <ConsumptionTable
+                :rows="consumptions"
+                :loading="loading"
+                :pagination="pagination"
+                @request="onRequest"
               />
             </div>
-          </div>
-        </template>
+          </template>
+          <template v-else>
+            <div class="grid-wrapper">
+              <ConsumptionGrid :items="consumptions" />
+              
+              <div class="pagination-wrapper">
+                <q-pagination
+                  v-model="pagination.page"
+                  :max="Math.ceil(pagination.rowsNumber / pagination.rowsPerPage)"
+                  :max-pages="6"
+                  boundary-links
+                  direction-links
+                  class="modern-pagination"
+                  @update:model-value="page => onRequest({ pagination: { ...pagination, page } })"
+                />
+              </div>
+            </div>
+          </template>
+        </div>
       </div>
     </div>
   </q-page>
 </template>
 
 <style lang="scss" scoped>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+// Variables de colores
+:root {
+  --color-dark-teal: #004D40;
+  --color-jade-green: #00796B;
+  --color-light-green: #4DB6AC;
+  --color-petroleum-blue: #01579B;
+  --color-sky-blue: #4FC3F7;
+  --color-pure-white: #FFFFFF;
+  --color-light-gray: #F5F5F5;
+  --color-charcoal-gray: #212121;
+  --color-medium-gray: #757575;
+  --color-golden: #FFD54F;
+}
+
+.modern-page {
+  background: var(--color-pure-white);
+  min-height: 100vh;
+  font-family: 'Inter', sans-serif;
+}
+
 .consumption-page {
-  .page-header .row {
-    flex-wrap: nowrap;
-  }
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
 
-  .actions-wrapper {
-    white-space: nowrap;
-  }
-
-  .q-btn {
-    min-width: unset;
-  }
-
-  .grid-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  @media (max-width: 599px) {
-    .page-header .row {
+  // Header principal
+  .page-header {
+    margin-bottom: 32px;
+    
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 32px;
       flex-wrap: wrap;
-      row-gap: 8px;
+    }
+    
+    .title-section {
+      flex: 1;
+      min-width: 300px;
       
-      .col {
-        width: 100%;
+      .page-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--color-charcoal-gray);
+        margin: 0 0 8px 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        
+        .title-icon {
+          color: var(--color-jade-green);
+          font-size: 28px;
+        }
       }
       
-      .actions-wrapper {
-        width: 100%;
-        justify-content: flex-end;
+      .page-subtitle {
+        font-size: 16px;
+        color: var(--color-medium-gray);
+        margin: 0;
+        font-weight: 400;
+      }
+    }
+    
+    .stats-cards {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      
+      .stat-card {
+        background: var(--color-pure-white);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         display: flex;
+        align-items: center;
+        gap: 16px;
+        min-width: 180px;
+        border: 1px solid rgba(0, 77, 64, 0.1);
+        transition: all 0.3s ease;
+        
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+        
+        &.stat-card-primary {
+          .stat-icon {
+            background: linear-gradient(135deg, var(--color-jade-green), var(--color-light-green));
+            color: var(--color-pure-white);
+          }
+        }
+        
+        &.stat-card-secondary {
+          .stat-icon {
+            background: linear-gradient(135deg, var(--color-petroleum-blue), var(--color-sky-blue));
+            color: var(--color-pure-white);
+          }
+        }
+        
+        .stat-icon {
+          width: 48px;
+          height: 48px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 24px;
+        }
+        
+        .stat-content {
+          .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--color-charcoal-gray);
+            line-height: 1.2;
+          }
+          
+          .stat-label {
+            font-size: 12px;
+            color: var(--color-medium-gray);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+        }
+      }
+    }
+  }
+
+  // Sección de filtros
+  .filters-section {
+    margin-bottom: 24px;
+    
+    .filters-card {
+      background: var(--color-pure-white);
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      border: 1px solid rgba(0, 77, 64, 0.1);
+      overflow: hidden;
+      
+      .filters-header {
+        background: linear-gradient(135deg, var(--color-dark-teal), var(--color-jade-green));
+        padding: 16px 24px;
+        
+        .filters-title {
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--color-pure-white);
+          margin: 0;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          
+          .filters-icon {
+            font-size: 20px;
+          }
+        }
+      }
+      
+      .filters-content {
+        padding: 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 24px;
+        flex-wrap: wrap;
+        
+        .filters-wrapper {
+          flex: 1;
+          min-width: 300px;
+        }
+        
+        .actions-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          flex-wrap: wrap;
+          
+          /* Los estilos para .view-toggle-wrapper se aplicarán en su componente */
+          
+          .export-buttons {
+            display: flex;
+            gap: 8px;
+            
+            .export-btn {
+              padding: 8px 16px;
+              border-radius: 8px;
+              font-weight: 500;
+              font-size: 14px;
+              transition: all 0.3s ease;
+              
+              &.excel-btn {
+                background: var(--color-light-green);
+                color: var(--color-pure-white);
+                
+                &:hover {
+                  background: var(--color-jade-green);
+                  transform: translateY(-1px);
+                }
+              }
+              
+              &.pdf-btn {
+                background: #E53E3E;
+                color: var(--color-pure-white);
+                
+                &:hover {
+                  background: #C53030;
+                  transform: translateY(-1px);
+                }
+              }
+            }
+          }
+          
+          .new-btn {
+            background: linear-gradient(135deg, var(--color-jade-green), var(--color-light-green));
+            color: var(--color-pure-white);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            
+            &:hover {
+              transform: translateY(-1px);
+              box-shadow: 0 4px 12px rgba(0, 121, 107, 0.3);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Sección de contenido
+  .content-section {
+    .content-card {
+      background: var(--color-pure-white);
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      border: 1px solid rgba(0, 77, 64, 0.1);
+      overflow: hidden;
+      
+      /* Los estilos para .table-wrapper se aplicarán en el componente ConsumptionTable */
+      
+      .grid-wrapper {
+        padding: 24px;
+        
+        .pagination-wrapper {
+          display: flex;
+          justify-content: center;
+          margin-top: 32px;
+          
+          .modern-pagination {
+            :deep(.q-pagination__content) {
+              .q-btn {
+                color: var(--color-jade-green);
+                
+                &.q-btn--active {
+                  background: var(--color-jade-green);
+                  color: var(--color-pure-white);
+                }
+                
+                &:hover:not(.q-btn--active) {
+                  background: var(--color-light-gray);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Responsive
+  @media (max-width: 768px) {
+    padding: 16px;
+    
+    .page-header {
+      .header-content {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 24px;
+      }
+      
+      .title-section {
+        min-width: unset;
+        
+        .page-title {
+          font-size: 20px;
+        }
+      }
+      
+      .stats-cards {
+        justify-content: center;
+        
+        .stat-card {
+          flex: 1;
+          min-width: 140px;
+        }
+      }
+    }
+    
+    .filters-section {
+      .filters-card {
+        .filters-content {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 16px;
+          
+          .filters-wrapper {
+            min-width: unset;
+          }
+          
+          .actions-wrapper {
+            justify-content: center;
+            flex-wrap: wrap;
+          }
+        }
+      }
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .stats-cards {
+      .stat-card {
+        min-width: unset;
+        flex-direction: column;
+        text-align: center;
+        gap: 12px;
+        
+        .stat-icon {
+          width: 40px;
+          height: 40px;
+          font-size: 20px;
+        }
+      }
+    }
+    
+    .actions-wrapper {
+      .export-buttons {
+        flex-direction: column;
+        width: 100%;
+        
+        .export-btn {
+          width: 100%;
+        }
+      }
+      
+      .new-btn {
+        width: 100%;
+        justify-content: center;
       }
     }
   }

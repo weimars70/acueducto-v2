@@ -13,6 +13,11 @@ export const useTabsStore = defineStore('tabs', {
     activeTab: null as string | null,
   }),
 
+  getters: {
+    hasActiveTabs: (state) => state.tabs.length > 0,
+    currentActiveTab: (state) => state.tabs.find(tab => tab.route === state.activeTab),
+  },
+
   actions: {
     addTab(tab: Tab) {
       const exists = this.tabs.some(t => t.route === tab.route);
@@ -35,15 +40,28 @@ export const useTabsStore = defineStore('tabs', {
     setActiveTab(route: string) {
       this.activeTab = route;
     },
+
+    clearAllTabs() {
+      this.tabs = [];
+      this.activeTab = null;
+    },
+
+    // Initialize store safely - prevent automatic navigation to persisted tabs
+    initializeStore() {
+      // If we have persisted tabs but no valid active tab, clear the active tab
+      if (this.activeTab && !this.tabs.some(tab => tab.route === this.activeTab)) {
+        this.activeTab = null;
+      }
+      
+      // If activeTab points to sync-data and we're not explicitly navigating there, clear it
+      if (this.activeTab === '/sync-data' && window.location.pathname !== '/sync-data') {
+        this.activeTab = null;
+      }
+    },
   },
 
   persist: {
-    enabled: true,
-    strategies: [
-      {
-        key: 'tabs',
-        storage: localStorage,
-      },
-    ],
+    key: 'tabs',
+    storage: localStorage,
   },
 });

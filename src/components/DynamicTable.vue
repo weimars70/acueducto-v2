@@ -1,80 +1,239 @@
 <template>
   <div class="dynamic-table-container">
-
-
-    <!-- Tabla -->
-    <div class="table-wrapper">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th
-              v-for="field in displayFields"
-              :key="field.name"
-              class="table-header"
-              :class="{ sortable: field.name !== schema.primaryKey }"
-              @click="handleSort(field.name)"
-            >
-              {{ field.label }}
-              <span
-                v-if="sortField === field.name"
-                class="sort-indicator"
-              >
-                {{ sortDirection === 'asc' ? '↑' : '↓' }}
-              </span>
-            </th>
-            <th class="table-header actions-header">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="loading" class="loading-row">
-            <td :colspan="displayFields.length + 1" class="loading-cell">
-              <div class="loading-spinner"></div>
-              Cargando datos...
-            </td>
-          </tr>
-          <tr v-else-if="data.length === 0" class="empty-row">
-            <td :colspan="displayFields.length + 1" class="empty-cell">
-              No se encontraron registros
-            </td>
-          </tr>
-          <tr
-            v-else
-            v-for="item in paginatedData"
-            :key="item[schema.primaryKey]"
-            class="table-row"
+    <!-- Controls Section -->
+    <div class="table-controls">
+      <div class="controls-left">
+        <div class="view-toggle">
+          <button 
+            :class="['toggle-btn', { active: viewMode === 'table' }]"
+            @click="viewMode = 'table'"
           >
-            <td
-              v-for="field in displayFields"
-              :key="field.name"
-              class="table-cell"
+            <q-icon name="table_view" size="16px" />
+            <span>Tabla</span>
+          </button>
+          <button 
+            :class="['toggle-btn', { active: viewMode === 'cards' }]"
+            @click="viewMode = 'cards'"
+          >
+            <q-icon name="view_module" size="16px" />
+            <span>Tarjetas</span>
+          </button>
+        </div>
+      </div>
+      <div class="controls-right">
+        <div class="search-container">
+          <q-input
+            v-model="searchQuery"
+            placeholder="Buscar registros..."
+            outlined
+            dense
+            class="search-input"
+            @update:model-value="handleSearch"
+          >
+            <template v-slot:prepend>
+              <q-icon name="search" color="green-6" />
+            </template>
+            <template v-slot:append v-if="searchQuery">
+              <q-icon 
+                name="clear" 
+                class="cursor-pointer" 
+                color="grey-5"
+                @click="searchQuery = ''; handleSearch()"
+              />
+            </template>
+          </q-input>
+        </div>
+        <q-btn
+          class="refresh-btn"
+          round
+          dense
+          @click="refreshData"
+          :loading="loading"
+        >
+          <q-icon name="refresh" size="16px" />
+          <q-tooltip>Actualizar</q-tooltip>
+        </q-btn>
+      </div>
+    </div>
+
+    <!-- Table View -->
+    <div v-if="viewMode === 'table'" class="table-view">
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr class="table-header-row">
+              <th
+                v-for="field in displayFields"
+                :key="field.name"
+                class="table-header"
+                :class="{ sortable: field.name !== schema.primaryKey }"
+                @click="handleSort(field.name)"
+              >
+                <div class="header-content">
+                  <span class="header-label">{{ field.label }}</span>
+                  <q-icon
+                    v-if="sortField === field.name"
+                    :name="sortDirection === 'asc' ? 'keyboard_arrow_up' : 'keyboard_arrow_down'"
+                    class="sort-icon"
+                    size="16px"
+                  />
+                </div>
+              </th>
+              <th class="table-header actions-header">
+                <div class="header-content">
+                  <span class="header-label">Acciones</span>
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="loading" class="loading-row">
+              <td :colspan="displayFields.length + 1" class="loading-cell">
+                <div class="loading-content">
+                  <q-spinner-dots color="green-6" size="24px" />
+                  <span>Cargando datos...</span>
+                </div>
+              </td>
+            </tr>
+            <tr v-else-if="data.length === 0" class="empty-row">
+              <td :colspan="displayFields.length + 1" class="empty-cell">
+                <div class="empty-content">
+                  <q-icon name="inbox" size="48px" color="grey-4" />
+                  <div class="empty-text">No se encontraron registros</div>
+                  <div class="empty-subtext">No hay datos disponibles para mostrar</div>
+                </div>
+              </td>
+            </tr>
+            <tr
+              v-else
+              v-for="item in paginatedData"
+              :key="item[schema.primaryKey]"
+              class="table-row"
             >
-              <span v-if="field.type === 'date' && item[field.name]">
-                {{ formatDate(item[field.name]) }}
-              </span>
-              <span v-else-if="field.type === 'number' && item[field.name] !== null">
-                {{ formatNumber(item[field.name]) }}
-              </span>
-              <span v-else-if="field.type === 'select' && field.options">
-                {{ getSelectLabel(field, item[field.name]) }}
-              </span>
-              <span v-else>
-                {{ item[field.name] || '-' }}
-              </span>
-            </td>
-            <td class="table-cell actions-cell">
-              <div class="action-buttons">
-                <button
-                  @click="$emit('edit', item)"
-                  class="action-btn edit-btn"
-                  title="Editar"
-                >
-                  ✏️
-                </button>
+              <td
+                v-for="field in displayFields"
+                :key="field.name"
+                class="table-cell"
+              >
+                <div class="cell-content">
+                  <span v-if="field.type === 'date' && item[field.name]" class="cell-value">
+                    {{ formatDate(item[field.name]) }}
+                  </span>
+                  <span v-else-if="field.type === 'number' && item[field.name] !== null" class="cell-value number">
+                    {{ formatNumber(item[field.name]) }}
+                  </span>
+                  <span v-else-if="field.type === 'select' && field.options" class="cell-value">
+                    {{ getSelectLabel(field, item[field.name]) }}
+                  </span>
+                  <span v-else class="cell-value">
+                    {{ item[field.name] || '-' }}
+                  </span>
+                </div>
+              </td>
+              <td class="table-cell actions-cell">
+                <div class="action-buttons">
+                  <q-btn
+                    class="action-btn edit-btn"
+                    round
+                    dense
+                    size="sm"
+                    @click="$emit('edit', item)"
+                  >
+                    <q-icon name="edit" size="14px" />
+                    <q-tooltip>Editar</q-tooltip>
+                  </q-btn>
+                  <q-btn
+                    class="action-btn delete-btn"
+                    round
+                    dense
+                    size="sm"
+                    @click="handleDelete(item)"
+                  >
+                    <q-icon name="delete" size="14px" />
+                    <q-tooltip>Eliminar</q-tooltip>
+                  </q-btn>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Cards View -->
+    <div v-else class="cards-view">
+      <div v-if="loading" class="cards-loading">
+        <div class="loading-content">
+          <q-spinner-dots color="green-6" size="32px" />
+          <span>Cargando datos...</span>
+        </div>
+      </div>
+      <div v-else-if="data.length === 0" class="cards-empty">
+        <div class="empty-content">
+          <q-icon name="view_module" size="64px" color="grey-4" />
+          <div class="empty-text">No hay registros</div>
+          <div class="empty-subtext">No se encontraron datos para mostrar</div>
+        </div>
+      </div>
+      <div v-else class="cards-grid">
+        <div 
+          v-for="item in paginatedData" 
+          :key="item[schema.primaryKey]"
+          class="data-card"
+        >
+          <div class="card-header">
+            <div class="card-icon">
+              <q-icon name="description" size="20px" />
+            </div>
+            <div class="card-actions">
+              <q-btn
+                class="card-action-btn edit-btn"
+                round
+                dense
+                size="sm"
+                @click="$emit('edit', item)"
+              >
+                <q-icon name="edit" size="12px" />
+                <q-tooltip>Editar</q-tooltip>
+              </q-btn>
+              <q-btn
+                class="card-action-btn delete-btn"
+                round
+                dense
+                size="sm"
+                @click="handleDelete(item)"
+              >
+                <q-icon name="delete" size="12px" />
+                <q-tooltip>Eliminar</q-tooltip>
+              </q-btn>
+            </div>
+          </div>
+          
+          <div class="card-content">
+            <div 
+              v-for="field in displayFields" 
+              :key="field.name"
+              class="field-item"
+            >
+              <div class="field-label">{{ field.label }}</div>
+              <div class="field-value">
+                <span v-if="field.type === 'date' && item[field.name]">
+                  {{ formatDate(item[field.name]) }}
+                </span>
+                <span v-else-if="field.type === 'number' && item[field.name] !== null" class="number-value">
+                  {{ formatNumber(item[field.name]) }}
+                </span>
+                <span v-else-if="field.type === 'select' && field.options">
+                  {{ getSelectLabel(field, item[field.name]) }}
+                </span>
+                <span v-else>
+                  {{ item[field.name] || '-' }}
+                </span>
               </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Paginación -->
@@ -188,6 +347,7 @@ const pageSize = ref(10);
 const currentPage = ref(1);
 const showDeleteModal = ref(false);
 const itemToDelete = ref<DynamicRecord | null>(null);
+const viewMode = ref('table'); // 'table' or 'cards'
 
 // Computed para paginación
 const totalRecords = computed(() => props.totalRecords || props.data.length);
@@ -242,6 +402,7 @@ const getSelectLabel = (field: FieldConfig, value: any): string => {
 
 // Métodos de interacción
 const handleSearch = () => {
+  currentPage.value = 1;
   emit('search', searchQuery.value);
 };
 
@@ -310,44 +471,71 @@ watch(() => props.pagination?.limit, (newLimit) => {
   overflow: hidden;
 }
 
-.table-toolbar {
+.table-controls {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
   border-bottom: 1px solid #e5e7eb;
-  background-color: #f9fafb;
+  background-color: #f0fdf4;
 }
 
-.toolbar-left {
+.controls-left {
   display: flex;
   align-items: center;
   gap: 1rem;
 }
 
-.toolbar-right {
+.controls-right {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.search-box {
+.view-toggle {
+  display: flex;
+  background: white;
+  border-radius: 0.375rem;
+  border: 1px solid #d1d5db;
+  overflow: hidden;
+}
+
+.toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  background: white;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.toggle-btn:hover {
+  background-color: #f3f4f6;
+}
+
+.toggle-btn.active {
+  background-color: #16a34a;
+  color: white;
+}
+
+.search-container {
   position: relative;
 }
 
 .search-input {
-  padding: 0.5rem 2.5rem 0.5rem 1rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
   width: 300px;
 }
 
-.search-icon {
-  position: absolute;
-  right: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #6b7280;
+.refresh-btn {
+  background-color: #16a34a;
+  color: white;
+}
+
+.refresh-btn:hover {
+  background-color: #15803d;
 }
 
 .btn {
@@ -363,12 +551,12 @@ watch(() => props.pagination?.limit, (newLimit) => {
 }
 
 .btn-primary {
-  background-color: #3b82f6;
+  background-color: #16a34a;
   color: white;
 }
 
 .btn-primary:hover {
-  background-color: #2563eb;
+  background-color: #15803d;
 }
 
 .btn-secondary {
@@ -408,7 +596,7 @@ watch(() => props.pagination?.limit, (newLimit) => {
 }
 
 .table-header {
-  background-color: #f9fafb;
+  background-color: #f0fdf4;
   padding: 0.75rem;
   text-align: left;
   font-weight: 600;
@@ -422,12 +610,234 @@ watch(() => props.pagination?.limit, (newLimit) => {
 }
 
 .table-header.sortable:hover {
-  background-color: #f3f4f6;
+  background-color: #dcfce7;
 }
 
-.sort-indicator {
-  margin-left: 0.5rem;
-  color: #3b82f6;
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sort-icon {
+  color: #16a34a;
+}
+
+.table-view {
+  overflow-x: auto;
+}
+
+.table-wrapper {
+  min-width: 100%;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-row:hover {
+  background-color: #f0fdf4;
+}
+
+.table-cell {
+  padding: 0.75rem;
+  color: #374151;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.cell-content {
+  display: flex;
+  align-items: center;
+}
+
+.cell-value.number {
+  font-family: monospace;
+  text-align: right;
+}
+
+.actions-cell {
+  text-align: center;
+  width: 120px;
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.action-btn {
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.action-btn.edit-btn {
+  color: #16a34a;
+  border-color: #16a34a;
+}
+
+.action-btn.edit-btn:hover {
+  background-color: #16a34a;
+  color: white;
+}
+
+.action-btn.delete-btn {
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+.action-btn.delete-btn:hover {
+  background-color: #ef4444;
+  color: white;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem;
+  color: #6b7280;
+}
+
+.empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 3rem;
+}
+
+.empty-text {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.empty-subtext {
+  color: #6b7280;
+}
+
+.cards-view {
+  padding: 1rem;
+}
+
+.cards-loading,
+.cards-empty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.data-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  transition: all 0.15s ease-in-out;
+}
+
+.data-card:hover {
+  border-color: #16a34a;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: #f0fdf4;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.card-icon {
+  color: #16a34a;
+}
+
+.card-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.card-action-btn {
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.card-action-btn.edit-btn {
+  color: #16a34a;
+  border-color: #16a34a;
+}
+
+.card-action-btn.edit-btn:hover {
+  background-color: #16a34a;
+  color: white;
+}
+
+.card-action-btn.delete-btn {
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+.card-action-btn.delete-btn:hover {
+  background-color: #ef4444;
+  color: white;
+}
+
+.card-content {
+  padding: 1rem;
+}
+
+.field-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.field-item:last-child {
+  border-bottom: none;
+}
+
+.field-label {
+  font-weight: 500;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.field-value {
+  color: #374151;
+  font-weight: 500;
+}
+
+.number-value {
+  font-family: monospace;
 }
 
 .actions-header {
@@ -506,7 +916,7 @@ watch(() => props.pagination?.limit, (newLimit) => {
   align-items: center;
   padding: 1rem;
   border-top: 1px solid #e5e7eb;
-  background-color: #f9fafb;
+  background-color: #f0fdf4;
 }
 
 .pagination-info {
@@ -530,7 +940,9 @@ watch(() => props.pagination?.limit, (newLimit) => {
 }
 
 .pagination-btn:hover:not(:disabled) {
-  background-color: #f3f4f6;
+  background-color: #dcfce7;
+  border-color: #16a34a;
+  color: #16a34a;
 }
 
 .pagination-btn:disabled {

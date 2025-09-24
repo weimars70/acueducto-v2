@@ -158,18 +158,22 @@ router.beforeEach((to, from, next) => {
   const tabsStore = useTabsStore();
   const isAuthenticated = authStore.isAuthenticated;
 
+  console.log('Router navigation:', { from: from.path, to: to.path, isAuthenticated });
+
   if (to.meta.requiresAuth && !isAuthenticated) {
+    console.log('Redirecting to login - not authenticated');
     next('/login');
     return;
   }
 
   if (to.path === '/login' && isAuthenticated) {
+    console.log('Redirecting to dashboard - already authenticated');
     next('/dashboard');
     return;
   }
 
-  // Add tab when navigating to a route
-  if (to.path !== '/login' && to.path !== '/dashboard' && to.path !== '/') {
+  // Add tab when navigating to a route (only if not coming from the same route)
+  if (to.path !== '/login' && to.path !== '/dashboard' && to.path !== '/' && to.path !== from.path) {
     const routeConfig = routes[2].children?.find(route => route.path === to.path);
     if (routeConfig) {
       // Get the menu item that corresponds to this route
@@ -191,6 +195,7 @@ router.beforeEach((to, from, next) => {
       const menuItem = menuItems.find(item => item.route === to.path);
       
       if (menuItem) {
+        console.log('Adding tab for route:', to.path);
         tabsStore.addTab({
           name: menuItem.label,
           route: menuItem.route,

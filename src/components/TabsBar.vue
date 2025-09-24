@@ -1,13 +1,32 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useTabsStore } from '../stores/tabs';
 
 const router = useRouter();
 const tabsStore = useTabsStore();
 
+// Initialize store safely on mount
+onMounted(() => {
+  tabsStore.initializeStore();
+});
+
 const tabs = computed(() => tabsStore.tabs);
-const activeTab = computed(() => tabsStore.activeTab);
+
+// Use a writable computed to avoid reactivity issues
+const activeTab = computed({
+  get: () => tabsStore.activeTab,
+  set: (value: string | null) => {
+    // Only navigate if this is a user-initiated change (not from store initialization)
+    if (value && value !== tabsStore.activeTab) {
+      tabsStore.setActiveTab(value);
+      // Only push to router if we're not already on that route
+      if (router.currentRoute.value.path !== value) {
+        router.push(value);
+      }
+    }
+  }
+});
 
 const handleTabClick = (route: string) => {
   tabsStore.setActiveTab(route);
@@ -17,8 +36,11 @@ const handleTabClick = (route: string) => {
 const handleTabClose = (route: string) => {
   tabsStore.removeTab(route);
   if (tabs.value.length > 0) {
-    router.push(tabs.value[tabs.value.length - 1].route);
+    const lastTab = tabs.value[tabs.value.length - 1];
+    tabsStore.setActiveTab(lastTab.route);
+    router.push(lastTab.route);
   } else {
+    tabsStore.setActiveTab('');
     router.push('/dashboard');
   }
 };

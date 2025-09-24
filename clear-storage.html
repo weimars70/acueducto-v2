@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Storage</title>
+</head>
+<body>
+    <h1>Clearing localStorage...</h1>
+    <script>
+        // Clear all localStorage
+        localStorage.clear();
+        
+        // Clear sessionStorage too
+        sessionStorage.clear();
+        
+        console.log('Storage cleared!');
+        document.body.innerHTML += '<p>Storage cleared! You can close this tab and refresh the app.</p>';
+        
+        // Show what was in localStorage before clearing
+        console.log('Previous localStorage keys:', Object.keys(localStorage));
+    </script>
+</body>
+</html>

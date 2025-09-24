@@ -8,6 +8,9 @@ import router from './router';
 import '@quasar/extras/material-icons/material-icons.css';
 import 'quasar/src/css/index.sass';
 
+// Import custom global styles
+import './styles/global.scss';
+
 import App from './App.vue';
 
 // Create Pinia instance with persistence plugin

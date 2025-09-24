@@ -1,177 +1,399 @@
 <template>
-  <q-page class="q-pa-md">
+  <q-page class="modern-page">
     <div class="page-container">
       <!-- Header -->
       <div class="page-header">
-        <div class="row items-center justify-between">
-          <h6 class="page-title">Gestión Cuotas Conexión</h6>
+        <div class="header-content">
+          <div class="title-section">
+            <div class="title-icon">
+              <q-icon name="account_balance" class="header-icon" />
+            </div>
+            <div class="title-text">
+              <h4 class="page-title">Cuotas de Conexión</h4>
+              <p class="page-subtitle">Gestión y seguimiento de cuotas de conexión</p>
+            </div>
+          </div>
+          
           <div class="header-actions">
-            <q-btn
-              color="green"
-              icon="file_download"
-              label="Excel"
-              @click="exportToExcel"
-              no-caps
-              unelevated
-              class="q-mr-sm"
-            />
-            <q-btn
-              color="red"
-              icon="picture_as_pdf"
-              label="PDF"
-              @click="exportToPDF"
-              no-caps
-              unelevated
-              class="q-mr-sm"
-            />
-            <q-btn
-              color="primary"
-              icon="add"
-              label="Nuevo"
-              @click="goToNewForm"
-              no-caps
-              unelevated
-            />
+            <div class="view-controls">
+              <ViewToggle v-model="viewMode" :options="['list', 'grid']" />
+            </div>
+            
+            <div class="action-buttons">
+              <q-btn
+                class="modern-btn export-btn excel-btn"
+                icon="file_download"
+                label="Excel"
+                @click="exportToExcel"
+                :loading="loading"
+                no-caps
+                unelevated
+              />
+              <q-btn
+                class="modern-btn export-btn pdf-btn"
+                icon="picture_as_pdf"
+                label="PDF"
+                @click="exportToPDF"
+                :loading="loading"
+                no-caps
+                unelevated
+              />
+              <q-btn
+                class="modern-btn primary-btn"
+                icon="add_circle"
+                label="Nueva Cuota"
+                @click="goToNewForm"
+                no-caps
+                unelevated
+              />
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Filters Card -->
-      <q-card class="filters-card q-mb-md">
-        <q-card-section>
-          <div class="row q-gutter-md">
+      <div class="filters-section">
+        <q-card class="modern-filters-card">
+          <q-card-section class="filters-header">
+            <div class="filters-title">
+              <q-icon name="filter_list" class="filters-icon" />
+              <span class="filters-label">Filtros de Búsqueda</span>
+            </div>
+            <q-btn
+              class="toggle-filters-btn"
+              :icon="filtersExpanded ? 'expand_less' : 'expand_more'"
+              flat
+              round
+              @click="filtersExpanded = !filtersExpanded"
+            />
+          </q-card-section>
+          
+          <q-slide-transition>
+            <q-card-section v-show="filtersExpanded" class="filters-content">
+              <div class="filters-grid">
+                <div class="filter-item">
+                  <q-input
+                    v-model="filters.instalacion_codigo"
+                    label="Código de Instalación"
+                    class="modern-input"
+                    outlined
+                    clearable
+                    @update:model-value="applyFilters"
+                    debounce="300"
+                  >
+                    <template v-slot:prepend>
+                      <q-icon name="home" class="input-icon" />
+                    </template>
+                  </q-input>
+                </div>
+                
+                <div class="filter-item">
+                  <q-input
+                    v-model="filters.nombre"
+                    label="Nombre del Cliente"
+                    class="modern-input"
+                    outlined
+                    clearable
+                    @update:model-value="applyFilters"
+                    debounce="300"
+                  >
+                    <template v-slot:prepend>
+                      <q-icon name="person" class="input-icon" />
+                    </template>
+                  </q-input>
+                </div>
+                
+                <div class="filter-item">
+                  <q-input
+                    v-model="filters.fecha_desde"
+                    label="Fecha Desde"
+                    class="modern-input"
+                    outlined
+                    clearable
+                    type="date"
+                    @update:model-value="applyFilters"
+                  >
+                    <template v-slot:prepend>
+                      <q-icon name="event" class="input-icon" />
+                    </template>
+                  </q-input>
+                </div>
+                
+                <div class="filter-item">
+                  <q-input
+                    v-model="filters.fecha_hasta"
+                    label="Fecha Hasta"
+                    class="modern-input"
+                    outlined
+                    clearable
+                    type="date"
+                    @update:model-value="applyFilters"
+                  >
+                    <template v-slot:prepend>
+                      <q-icon name="event" class="input-icon" />
+                    </template>
+                  </q-input>
+                </div>
+                
+                <div class="filter-actions">
+                  <q-btn
+                    class="modern-btn clear-btn"
+                    icon="refresh"
+                    label="Limpiar Filtros"
+                    @click="clearFilters"
+                    no-caps
+                    unelevated
+                  />
+                </div>
+              </div>
+            </q-card-section>
+          </q-slide-transition>
+        </q-card>
+      </div>
 
-            <div class="col-md-2 col-sm-6 col-xs-12">
-              <q-input
-                v-model="filters.instalacion_codigo"
-                label="Instalación"
-                outlined
-                dense
-                clearable
-                @update:model-value="applyFilters"
-                debounce="300"
-              >
-                <template v-slot:prepend>
-                  <q-icon name="home" />
-                </template>
-              </q-input>
+      <!-- Data Content -->
+      <div class="data-section">
+        <!-- Vista de Tabla -->
+        <q-card v-if="viewMode === 'list'" class="modern-data-card table-view">
+          <q-card-section class="table-header">
+            <div class="table-title">
+              <q-icon name="table_view" class="table-icon" />
+              <span class="table-label">Lista de Cuotas de Conexión</span>
             </div>
-            <div class="col-md-3 col-sm-6 col-xs-12">
-              <q-input
-                v-model="filters.nombre"
-                label="Nombre"
-                outlined
-                dense
-                clearable
-                @update:model-value="applyFilters"
-                debounce="300"
-              >
-                <template v-slot:prepend>
-                  <q-icon name="person" />
-                </template>
-              </q-input>
+            <div class="table-info">
+              <q-chip class="info-chip" icon="info" color="teal-1" text-color="teal-8">
+                {{ pagination.rowsNumber }} registros
+              </q-chip>
             </div>
-            <div class="col-md-2 col-sm-6 col-xs-12">
-              <q-input
-                v-model="filters.fecha_desde"
-                label="Fecha Desde"
-                outlined
-                dense
-                clearable
-                type="date"
-                @update:model-value="applyFilters"
-              >
-                <template v-slot:prepend>
-                  <q-icon name="event" />
-                </template>
-              </q-input>
-            </div>
-            <div class="col-md-2 col-sm-6 col-xs-12">
-              <q-input
-                v-model="filters.fecha_hasta"
-                label="Fecha Hasta"
-                outlined
-                dense
-                clearable
-                type="date"
-                @update:model-value="applyFilters"
-              >
-                <template v-slot:prepend>
-                  <q-icon name="event" />
-                </template>
-              </q-input>
-            </div>
+          </q-card-section>
+          
+          <q-card-section class="q-pa-none">
+            <q-table
+              :rows="data"
+              :columns="columns"
+              :loading="loading"
+              row-key="codigo"
+              flat
+              class="modern-table"
+              @request="onRequest"
+              binary-state-sort
+              :rows-per-page-options="[5, 10, 25, 50, 100]"
+              v-model:pagination="pagination"
+            >
+              <template v-slot:loading>
+                <q-inner-loading showing>
+                  <div class="loading-content">
+                    <q-spinner-dots size="50px" color="teal" />
+                    <p class="loading-text">Cargando cuotas...</p>
+                  </div>
+                </q-inner-loading>
+              </template>
 
-            <div class="col-md-2 col-sm-6 col-xs-12">
-              <q-btn
-                color="primary"
-                icon="refresh"
-                label="Limpiar"
-                outline
-                @click="clearFilters"
-                class="full-width"
-                no-caps
-                align="left"
-              />
+              <template v-slot:body-cell-codigo="props">
+                <q-td :props="props">
+                  <div class="code-cell">
+                    <q-chip class="code-chip" color="blue-1" text-color="blue-8">
+                      #{{ props.value }}
+                    </q-chip>
+                  </div>
+                </q-td>
+              </template>
+
+              <template v-slot:body-cell-instalacion_codigo="props">
+                <q-td :props="props">
+                  <div class="installation-cell">
+                    <q-icon name="home" class="cell-icon" />
+                    <span class="cell-text">{{ props.value }}</span>
+                  </div>
+                </q-td>
+              </template>
+
+              <template v-slot:body-cell-nombre="props">
+                <q-td :props="props">
+                  <div class="name-cell">
+                    <q-icon name="person" class="cell-icon" />
+                    <span class="cell-text">{{ props.value }}</span>
+                  </div>
+                </q-td>
+              </template>
+
+              <template v-slot:body-cell-saldo="props">
+                <q-td :props="props">
+                  <div class="amount-cell saldo">
+                    <q-chip class="amount-chip saldo-chip" icon="account_balance_wallet">
+                      ${{ formatCurrency(props.value) }}
+                    </q-chip>
+                  </div>
+                </q-td>
+              </template>
+
+              <template v-slot:body-cell-cuota="props">
+                <q-td :props="props">
+                  <div class="amount-cell cuota">
+                    <q-chip class="amount-chip cuota-chip" icon="payments">
+                      ${{ formatCurrency(props.value) }}
+                    </q-chip>
+                  </div>
+                </q-td>
+              </template>
+
+              <template v-slot:body-cell-por_interes="props">
+                <q-td :props="props">
+                  <div class="percentage-cell">
+                    <q-chip class="percentage-chip" icon="percent" color="orange-1" text-color="orange-8">
+                      {{ props.value }}%
+                    </q-chip>
+                  </div>
+                </q-td>
+              </template>
+
+              <template v-slot:body-cell-fecha="props">
+                <q-td :props="props">
+                  <div class="date-cell">
+                    <q-icon name="event" class="cell-icon" />
+                    <span class="cell-text">{{ formatDate(props.value) }}</span>
+                  </div>
+                </q-td>
+              </template>
+            </q-table>
+          </q-card-section>
+        </q-card>
+
+        <!-- Vista de Tarjetas -->
+        <div v-else class="cards-view">
+          <div class="cards-header">
+            <div class="cards-title">
+              <q-icon name="grid_view" class="cards-icon" />
+              <span class="cards-label">Tarjetas de Cuotas de Conexión</span>
+            </div>
+            <div class="cards-info">
+              <q-chip class="info-chip" icon="info" color="teal-1" text-color="teal-8">
+                {{ data.length }} de {{ pagination.rowsNumber }} registros
+              </q-chip>
             </div>
           </div>
-
-        </q-card-section>
-      </q-card>
-
-      <!-- Data Table -->
-      <q-card class="data-card">
-        <q-card-section class="q-pa-none">
-          <q-table
-            :rows="data"
-            :columns="columns"
-            :loading="loading"
-            :pagination="pagination"
-            row-key="codigo"
-            flat
-            bordered
-            class="cuotas-table"
-            @request="onRequest"
-            binary-state-sort
-            :rows-per-page-options="[5, 10, 25, 50, 100]"
-            v-model:pagination="pagination"
-          >
-            <template v-slot:loading>
-              <q-inner-loading showing color="primary" />
-            </template>
-
-            <template v-slot:body-cell-saldo="props">
-              <q-td :props="props">
-                <span class="text-weight-bold text-green-8">
-                  ${{ formatCurrency(props.value) }}
-                </span>
-              </q-td>
-            </template>
-
-            <template v-slot:body-cell-cuota="props">
-              <q-td :props="props">
-                <span class="text-weight-medium">
-                  ${{ formatCurrency(props.value) }}
-                </span>
-              </q-td>
-            </template>
-
-            <template v-slot:body-cell-por_interes="props">
-              <q-td :props="props">
-                <span class="text-weight-medium text-orange-8">
-                  {{ props.value }}%
-                </span>
-              </q-td>
-            </template>
-
-            <template v-slot:body-cell-fecha="props">
-              <q-td :props="props">
-                {{ formatDate(props.value) }}
-              </q-td>
-            </template>
-          </q-table>
-        </q-card-section>
-      </q-card>
+          
+          <div v-if="loading" class="cards-loading">
+            <div class="loading-content">
+              <q-spinner-dots size="50px" color="teal" />
+              <p class="loading-text">Cargando cuotas...</p>
+            </div>
+          </div>
+          
+          <div v-else class="cards-grid">
+            <div v-for="item in data" :key="item.codigo" class="cuota-card">
+              <q-card class="modern-cuota-card">
+                <q-card-section class="card-header">
+                  <div class="card-title">
+                    <q-chip class="code-chip" color="blue-1" text-color="blue-8" icon="tag">
+                      #{{ item.codigo }}
+                    </q-chip>
+                    <q-chip class="status-chip" color="green-1" text-color="green-8" icon="check_circle">
+                      Activa
+                    </q-chip>
+                  </div>
+                </q-card-section>
+                
+                <q-card-section class="card-content">
+                  <div class="info-row">
+                    <div class="info-item">
+                      <q-icon name="home" class="info-icon" />
+                      <div class="info-text">
+                        <span class="info-label">Instalación</span>
+                        <span class="info-value">{{ item.instalacion_codigo }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div class="info-row">
+                    <div class="info-item">
+                      <q-icon name="person" class="info-icon" />
+                      <div class="info-text">
+                        <span class="info-label">Cliente</span>
+                        <span class="info-value">{{ item.nombre }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div class="info-row">
+                    <div class="info-item">
+                      <q-icon name="event" class="info-icon" />
+                      <div class="info-text">
+                        <span class="info-label">Fecha</span>
+                        <span class="info-value">{{ formatDate(item.fecha) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </q-card-section>
+                
+                <q-card-section class="card-amounts">
+                  <div class="amount-grid">
+                    <div class="amount-item saldo">
+                      <div class="amount-icon">
+                        <q-icon name="account_balance_wallet" />
+                      </div>
+                      <div class="amount-info">
+                        <span class="amount-label">Saldo</span>
+                        <span class="amount-value">${{ formatCurrency(item.saldo) }}</span>
+                      </div>
+                    </div>
+                    
+                    <div class="amount-item cuota">
+                      <div class="amount-icon">
+                        <q-icon name="payments" />
+                      </div>
+                      <div class="amount-info">
+                        <span class="amount-label">Cuota</span>
+                        <span class="amount-value">${{ formatCurrency(item.cuota) }}</span>
+                      </div>
+                    </div>
+                    
+                    <div class="amount-item interes">
+                      <div class="amount-icon">
+                        <q-icon name="percent" />
+                      </div>
+                      <div class="amount-info">
+                        <span class="amount-label">Interés</span>
+                        <span class="amount-value">{{ item.por_interes }}%</span>
+                      </div>
+                    </div>
+                  </div>
+                </q-card-section>
+                
+                <q-card-actions class="card-actions">
+                  <q-btn
+                    class="action-btn view-btn"
+                    icon="visibility"
+                    label="Ver Detalle"
+                    flat
+                    no-caps
+                  />
+                  <q-btn
+                    class="action-btn edit-btn"
+                    icon="edit"
+                    label="Editar"
+                    flat
+                    no-caps
+                  />
+                </q-card-actions>
+              </q-card>
+            </div>
+          </div>
+          
+          <!-- Paginación para vista de tarjetas -->
+          <div v-if="!loading && data.length > 0" class="cards-pagination">
+            <q-pagination
+              v-model="pagination.page"
+              :max="Math.ceil(pagination.rowsNumber / pagination.rowsPerPage)"
+              :max-pages="6"
+              direction-links
+              boundary-links
+              color="teal"
+              @update:model-value="loadData"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   </q-page>
 </template>
@@ -182,6 +404,7 @@ import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
 import { cuotasConexionService } from '../services/cuotas-conexion.service';
 import { exportService } from '../services/export.service';
+import ViewToggle from '../components/ViewToggle.vue';
 
 interface CuotaConexion {
   codigo: number;
@@ -197,6 +420,8 @@ const $q = useQuasar();
 const router = useRouter();
 const loading = ref(false);
 const data = ref<CuotaConexion[]>([]);
+const viewMode = ref<'grid' | 'list'>('list');
+const filtersExpanded = ref(true);
 
 const filters = ref({
   instalacion_codigo: '',
@@ -218,49 +443,49 @@ const columns = [
     name: 'codigo',
     required: true,
     label: 'Código',
-    align: 'left',
+    align: 'left' as const,
     field: 'codigo',
     sortable: true
   },
   {
     name: 'instalacion_codigo',
     label: 'Instalación',
-    align: 'left',
+    align: 'left' as const,
     field: 'instalacion_codigo',
     sortable: true
   },
   {
     name: 'nombre',
     label: 'Nombre',
-    align: 'left',
+    align: 'left' as const,
     field: 'nombre',
     sortable: true
   },
   {
     name: 'fecha',
     label: 'Fecha',
-    align: 'center',
+    align: 'center' as const,
     field: 'fecha',
     sortable: true
   },
   {
     name: 'saldo',
     label: 'Saldo',
-    align: 'right',
+    align: 'right' as const,
     field: 'saldo',
     sortable: true
   },
   {
     name: 'cuota',
     label: 'Cuota',
-    align: 'right',
+    align: 'right' as const,
     field: 'cuota',
     sortable: true
   },
   {
     name: 'por_interes',
     label: '% Interés',
-    align: 'center',
+    align: 'center' as const,
     field: 'por_interes',
     sortable: true
   }
